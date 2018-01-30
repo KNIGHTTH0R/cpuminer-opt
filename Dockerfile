@@ -1,18 +1,35 @@
 #
-# Dockerfile for cpuminer
-# usage: docker run hmage/cpuminer-opt --url xxxx --user xxxx --pass xxxx
-# ex: docker run hmage/cpuminer-opt -a lyra2 -o stratum+tcp://lyra2re.eu.nicehash.com:3342 -O 1HMageKbRBu12FkkFbMEcskAtH59TVrS2G.${HOSTNAME//-/}:x
+# Dockerfile for cpuminer-opt
+# usage: docker build -t cpuminer-opt:latest .
+# run: docker run -it --rm cpuminer-opt:latest [ARGS]
+# ex: docker run -it --rm cpuminer-opt:latest -a cryptonight -o cryptonight.eu.nicehash.com:3355 -u 1MiningDW2GKzf4VQfmp4q2XoUvR6iy6PD.worker1 -p x -t 3
 #
 
-FROM		debian:jessie
-MAINTAINER	Eugene Bujak <hmage@hmage.net>
+# Build
+FROM ubuntu:16.04 as builder
 
-RUN		echo 'APT::Install-Recommends "false";' > /etc/apt/apt.conf.d/zz-local-tame
-RUN		apt-get update && apt-get upgrade -y && apt-get install -y git ca-certificates build-essential autoconf automake libssl-dev libcurl4-openssl-dev libjansson-dev libgmp-dev
-RUN		git clone https://github.com/hmage/cpuminer-opt
+RUN apt-get update \
+  && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    libgmp-dev \
+    libcurl4-openssl-dev \
+    libjansson-dev \
+    automake \
+  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR		/cpuminer-opt
+COPY . /app/
+RUN cd /app/ && ./build.sh
 
-RUN		autoreconf -f -i -v && CFLAGS="-O3 -maes -mssse3 -mavx -mtune=intel -DUSE_ASM" CXXFLAGS="$CFLAGS -std=gnu++11" ./configure --with-curl && make -j8
+# App
+FROM ubuntu:16.04
 
-ENTRYPOINT	["./cpuminer"]
+RUN apt-get update \
+  && apt-get install -y \
+    libcurl3 \
+    libjansson4 \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/cpuminer .
+ENTRYPOINT ["./cpuminer"]
+CMD ["-h"]
